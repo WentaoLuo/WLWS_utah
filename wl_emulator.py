@@ -6,19 +6,19 @@ from scipy import integrate
 
 # Basic Parameters---------------------------
 #h = 0.673
-h = 1.0
-Om0 = 0.3156
+h = 0.7
+Om0 = 0.3
 Ol0 = 1.0-Om0
 Otot = Om0+Ol0
 Ok0 = 1.0-Otot
 w = -1
 rho_crit0 = 2.78e11 #M_sun Mpc^-3 *h*h
 rho_bar0 = rho_crit0*Om0
-sigma8 = 0.9
+sigma8 = 0.8
 apr =  206269.43                #1/1^{''}
 vc = 2.9970e5                   #km/s
 G = 4.3e-9                      #(Mpc/h)^1 (Msun/h)^-1 (km/s)^2 
-H0 = 67.3                      #km/s/(Mpc/h)
+H0 = 70.0                      #km/s/(Mpc/h)
 pc = 3.085677e16                #m
 kpc = 3.085677e19               #m
 Mpc = 3.085677e22               #m
@@ -29,7 +29,7 @@ pi  = np.pi
 omega_m = Om0
 omega_l = Ol0
 omega_k = Ok0
-Gg    =6.754e-11              
+Gg    =6.67408e-11              
 ckm   =3.240779e-17            
 ckg   =5.027854e-31           
 fac   =(vc*vc*ckg)/(4.*pi*Gg*ckm) 
@@ -64,9 +64,6 @@ def funcs(Rp,rs):
   s1  = Rp*0.0
   s2  = Rp*0.0
 
-#  ixa = x>0.
-#  ixb = x<1.0
-#  ix1 = ixa&ixb
   if x >0.0 and x<1.0:
     s1 = 1.0/x1*(1.0-x2*x4)
     s2 = 2.0/(x1+1.0)*(np.log(0.5*x)\
@@ -141,7 +138,9 @@ def Rpbins(theta,Nbin,z):
 #----------------------------------------------------------------
 def main():
    Nbin = 10
-   Nlens= 5000
+   #Nlens= 10000
+   fmock= '../mock/mock_f0.10_s01.dat' 
+
    Nboot= 500
    esdall= np.zeros((Nlens,Nbin))
    esdmdl= np.zeros((Nlens,Nbin))
@@ -169,6 +168,7 @@ def main():
      esdmean[j]= np.nanmean(temp[j,:])
      esdmodel[j]= np.nanmean(esdmdl[:,j])
    #print esdmean,esderr
+   plt.figure(figsize=[9,6])
    plt.errorbar(rr,esdmean,yerr=esderr,fmt='k.',ms=20,elinewidth=3,label='Mock')
    plt.plot(rr,esdmodel,'k-',linewidth=3,label='NFW')
    plt.xlabel('R ($h^{-1}kpc$)',fontsize=20)
@@ -177,7 +177,7 @@ def main():
    plt.xscale('log')
    plt.yscale('log',nonposy='clip')
    plt.xlim(0.1,1.5)
-   plt.ylim(1,200)
+   plt.ylim(5,200)
    plt.show()
 
 if __name__=='__main__':
