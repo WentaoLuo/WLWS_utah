@@ -129,7 +129,7 @@ def Rpbins(theta,Nbin,z):
     rbin[i+1] = 10.0**ytmp2
     the1  = np.arctan(rbin[i]/dl)*180.0*60.0/pi
     the2  = np.arctan(rbin[i+1]/dl)*180.0*60.0/pi
-    area[i]= 20.0*pi*(the2**2-the1**2)
+    area[i]= 1.0*pi*(the2**2-the1**2)
     r[i] =(rbin[i])*1./2.+(rbin[i+1])*1./2.
     ngals[i]= np.random.poisson(lam=area[i]) 
     if ngals[i]>0:
@@ -144,13 +144,21 @@ def Rpbins(theta,Nbin,z):
 def main():
    Nboot= 500
    import sys
-   fmock= '../mock/mock_f0.10_s02.dat' 
+   fmock= '../mock/mock_f0.10_3samples.dat' 
    Mr,zl,zmax,Vmax,lgMh,R,icen = np.loadtxt(fmock,unpack=True,comments='#')
    icena= icen ==1
    icenb= Mr<= float(sys.argv[1])
    icenc= Mr>= float(sys.argv[2])
-   idcen= icena&icenb&icenc
-
+   icend= zl<= float(sys.argv[3])
+   idcen= icena&icenb&icenc&icend
+   plt.plot(zl,Mr,'k.')
+   plt.plot(zl[idcen],Mr[idcen],'r.')
+   plt.ylim(-18,-24)
+   plt.xlim(0.001,0.4)
+   plt.xlabel('z')
+   plt.ylabel('Mr')
+   plt.show()
+   print len(zl[idcen])
    idsat= icen ==0
    Mrcen= Mr[idcen]
    Mrsat= Mr[idsat]
@@ -163,15 +171,20 @@ def main():
 #------------------------------------------------------------------
    zs    = 0.45
    ds    = Da(zs)
-   sige  = 0.4
+   sige  = 0.36
    Nbin  = 10
    shear = np.zeros((Nlens,Nbin))
    Ngax  = np.zeros((Nlens,Nbin))
 
-   sumshrI = np.zeros(Nbin)
-   sumwhtI = np.zeros(Nbin)
-   sumshrII= np.zeros(Nbin)
-   sumwhtII= np.zeros(Nbin)
+   sumshrI  = np.zeros(Nbin)
+   sumwhtI  = np.zeros(Nbin)
+   sumwhtrI = np.zeros(Nbin)
+   sumshrII = np.zeros(Nbin)
+   sumwhtII = np.zeros(Nbin)
+   sumwhtrII= np.zeros(Nbin)
+   sumerrI  = np.zeros(Nbin)
+   sumerrII = np.zeros(Nbin)
+   sumnum   = np.zeros(Nbin)
    for i in range(Nlens):
      Mh   = Mhcen[i]
      c    = 4.67*(10.0**(Mh-14)*h)**(-0.11) # Neto et al 2007 
@@ -183,42 +196,52 @@ def main():
      Sig  =fac*ds/(dl*(ds-dl))/(1.0+zl[i])/(1.0+zl[i])
      for j in range(Nbin):
           ngal  = int(np.around(Ngax[i,j]))
-	  #print ngal
+	  sumnum[j]= sumnum[j]+Ngax[i,j]
 	  isx   = np.random.randint(low=0,high=len(errorp),size=ngal)
 	  #print j,shear[i,j]
           gmt   = Sig*np.random.normal(loc=shear[i,j],scale=0.4,size=ngal)
 	  wht   = 1.0/(sige*sige+errorp[isx]**2)/Sig/Sig
-	  #print gmt.sum(),wht.sum()
           sumshrI[j] = sumshrI[j]+(gmt*wht).sum()
+          #sumerrI[j] = sumerrI[j]+(Sig*sige*wht).sum()
           sumwhtI[j] = sumwhtI[j]+wht.sum()
+          sumerrI[j] = sumerrI[j]+(Sig*Sig*gmt*gmt*wht*wht).sum()
+          sumwhtrI[j] = sumwhtrI[j]+(wht*wht*Sig*Sig*Sig*Sig).sum()
           sumshrII[j]= sumshrII[j]+(gmt*wht).sum()/Vcen[i]
+          #sumerrII[j]= sumerrII[j]+(Sig*sige*wht).sum()/Vcen[i]
           sumwhtII[j]= sumwhtII[j]+wht.sum()/Vcen[i]
+          sumerrII[j]= sumerrII[j]+(Sig*Sig*gmt*gmt*wht*wht).sum()/Vcen[i]/Vcen[i]
+          sumwhtrII[j]= sumwhtrII[j]+(wht*wht*Sig*Sig*Sig*Sig).sum()/Vcen[i]/Vcen[i]
 
    gammaI  = sumshrI/sumwhtI
+   errorI  = np.sqrt(sumerrI/sumwhtrI/sumnum)*Sig
    gammaII = sumshrII/sumwhtII
+   errorII = np.sqrt(sumerrII/sumwhtrII/sumnum)*Sig
+   for ie in range(len(errorI)):
+      #print Rp[ie],gammaI[ie],errorI[ie],gammaII[ie],errorII[ie]
+      print Rp[ie]
    Mhm     = np.mean(Mhcen)
    zm      = np.mean(zl)
    con     = 4.67*(10.0**(Mhm-14)*h)**(-0.11) # Neto et al 2007 
    esdnfw  = np.zeros(Nbin)
    for i in range(Nbin):
      esdnfw[i]  = nfwesd([Mhm,con],zm,Rp[i])
-     print Rp[i], gammaI[i]/h,gammaII[i]/h,esdnfw[i]/h
-     #print gammaII
-   """ 
+    
    plt.figure(figsize=[9,6])
-   #plt.errorbar(Rp,gammaI,yerr=esderr,fmt='k.',\
-   #             ms=20,elinewidth=3,label='weight I')
-   plt.plot(Rp,gammaII/h,'k-',linewidth=3,label='weight volum limited')
-   plt.plot(Rp,gammaI/h,'k--',linewidth=3,label='weight traditional')
-   plt.plot(Rp,esdnfw/h,'k:',linewidth=3,label='<Mh> NFW model')
+   plt.errorbar(Rp,gammaI/h,yerr=errorI*1.414/h,fmt='g.',\
+                ms=20,elinewidth=3,label='weight I')
+   plt.errorbar(Rp/1.1,gammaII/h,yerr=errorII*1.414/h,fmt='r.',\
+                ms=20,elinewidth=3,label='weight II')
+   plt.plot(Rp/1.1,gammaII/h,'r--',linewidth=3,label='weight volum limited')
+   plt.plot(Rp,gammaI/h,'g--',linewidth=3,label='weight traditional')
+   plt.plot(Rp,esdnfw/h,'b-',linewidth=3,label='<Mh> NFW model')
    plt.xlabel('R ($h^{-1}kpc$)',fontsize=20)
    plt.ylabel('ESD ($M_{\odot}/pc^2)$',fontsize=20)
    plt.legend()
    plt.xscale('log')
    plt.yscale('log',nonposy='clip')
    plt.xlim(0.02,2.0)
-   plt.ylim(0.01,1000)
+   plt.ylim(0.1,800)
    plt.show()
-   """ 
+    
 if __name__=='__main__':
    main()
