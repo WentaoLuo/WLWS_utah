@@ -34,8 +34,9 @@ ckm   =3.240779e-17
 ckg   =5.027854e-31           
 fac   =(vc*vc*ckg)/(4.*pi*Gg*ckm) 
 resp,errorp = np.loadtxt('parents_dist.dat',unpack=True) 
-
-Nboot = 500
+sige  = 0.4
+zs    = 0.45
+Nboot = 200
 #--Basic cosmology calculations--------------------
 def efunclcdm(x):
    res = 1.0/np.sqrt(Om0*(1.0+x)**3+Ok0*(1.0+x)**2+Ol0*(1.0+x)**(3*(1.0+w)))
@@ -108,7 +109,7 @@ def Rpbins(theta,Nbin,z):
   Rmax  = 2.0
   Rmin  = 0.02
   dl    = Da(z)
-  zs    = 0.45
+  #zs    = 0.45
   ds    = Da(zs)
   Sig   =fac*ds/(dl*(ds-dl))/(1.0+z)/(1.0+z)
   rbin  = np.zeros(Nbin+1)
@@ -118,8 +119,6 @@ def Rpbins(theta,Nbin,z):
   ngals = np.zeros(Nbin)
   esd   = np.zeros(Nbin)
   esdnfw= np.zeros(Nbin)
-  #err   = np.zeros(Nbin)
-  #wts   = np.zeros(Nbin)
   the1  = np.zeros(Nbin)
   the2  = np.zeros(Nbin)
   for i in range(Nbin):
@@ -130,27 +129,28 @@ def Rpbins(theta,Nbin,z):
     the1  = np.arctan(rbin[i]/dl)*180.0*60.0/pi
     the2  = np.arctan(rbin[i+1]/dl)*180.0*60.0/pi
     area[i]= 1.0*pi*(the2**2-the1**2)
-    r[i] =(rbin[i])*1./2.+(rbin[i+1])*1./2.
-    ngals[i]= np.random.poisson(lam=area[i]) 
+    r[i] =(rbin[i])*0.5+(rbin[i+1])*0.5
+    ngals[i]= np.random.poisson(lam=area[i])
+    #ngals[i]= area[i]
     if ngals[i]>0:
-      esd[i]= nfwesd(theta,z,r[i])+Sig*np.random.normal(loc=0.0,scale=0.4)/np.sqrt(float(ngals[i]))
       esdnfw[i]= nfwesd(theta,z,r[i])/Sig
-      #err[i]= Sig*np.random.normal(loc=0.0,scale=0.4)/np.sqrt(float(ngals[i]))
-      
-  #return {'radius':r,'NUM':ngals,'ESD':esd,'NFW':esdnfw,'error':err}
-  return {'radius':r,'NUM':ngals,'ESD':esd,'NFW':esdnfw}
+  return {'radius':r,'NUM':ngals,'NFW':esdnfw}
 
 #----------------------------------------------------------------
 def main():
    Nboot= 500
    import sys
-   fmock= '../mock/mock_f0.10_3samples.dat' 
+
+   #fmock= '../mock/mock_f0.10_2samples.dat' 
+   fmock= '../mock/mock_f0.10_4samples.dat' 
    Mr,zl,zmax,Vmax,lgMh,R,icen = np.loadtxt(fmock,unpack=True,comments='#')
    icena= icen ==1
    icenb= Mr<= float(sys.argv[1])
    icenc= Mr>= float(sys.argv[2])
    icend= zl<= float(sys.argv[3])
-   idcen= icena&icenb&icenc&icend
+   icene= zl>-0.02
+   idcen= icena&icenb&icenc&icend&icene
+
    plt.plot(zl,Mr,'k.')
    plt.plot(zl[idcen],Mr[idcen],'r.')
    plt.ylim(-18,-24)
@@ -158,18 +158,18 @@ def main():
    plt.xlabel('z')
    plt.ylabel('Mr')
    plt.show()
-   print len(zl[idcen])
+
    idsat= icen ==0
    Mrcen= Mr[idcen]
-   Mrsat= Mr[idsat]
+   #Mrsat= Mr[idsat]
    zlcen= zl[idcen]
-   zlsat= zl[idsat]
+   #zlsat= zl[idsat]
    Vcen = Vmax[idcen]
-   Vsat = Vmax[idsat]
+   #Vsat = Vmax[idsat]
    Mhcen= lgMh[idcen]
    Nlens= len(Mhcen)
+   #print Nlens
 #------------------------------------------------------------------
-   zs    = 0.45
    ds    = Da(zs)
    sige  = 0.36
    Nbin  = 10
@@ -178,60 +178,68 @@ def main():
 
    sumshrI  = np.zeros(Nbin)
    sumwhtI  = np.zeros(Nbin)
-   sumwhtrI = np.zeros(Nbin)
    sumshrII = np.zeros(Nbin)
    sumwhtII = np.zeros(Nbin)
-   sumwhtrII= np.zeros(Nbin)
    sumerrI  = np.zeros(Nbin)
    sumerrII = np.zeros(Nbin)
    sumnum   = np.zeros(Nbin)
+   sumesd   = np.zeros(Nbin)
    for i in range(Nlens):
      Mh   = Mhcen[i]
      c    = 4.67*(10.0**(Mh-14)*h)**(-0.11) # Neto et al 2007 
-     info = Rpbins([Mh,c],Nbin,zl[i])
+     info = Rpbins([Mh,c],Nbin,zlcen[i])
+     #info = Rpbins([Mh,c],Nbin,zl[i])
      Rp   = info['radius']
      shear[i,:] = info['NFW']
      Ngax[i,:]  = info['NUM']
-     dl   = Da(zl[i])*(1.0+zl[i])
-     Sig  =fac*ds/(dl*(ds-dl))/(1.0+zl[i])/(1.0+zl[i])
+     dl   = Da(zlcen[i])*(1.0+zlcen[i])
+     Sig  =fac*ds/(dl*(ds-dl))/(1.0+zlcen[i])/(1.0+zlcen[i])
+     #print zl[i],Ngax[i,:].sum()
      for j in range(Nbin):
+          sumesd[j]  = sumesd[j]+nfwesd([Mh,c],zlcen[i],Rp[j])
           ngal  = int(np.around(Ngax[i,j]))
 	  sumnum[j]= sumnum[j]+Ngax[i,j]
 	  isx   = np.random.randint(low=0,high=len(errorp),size=ngal)
-	  #print j,shear[i,j]
-          gmt   = Sig*np.random.normal(loc=shear[i,j],scale=0.4,size=ngal)
+          gmt   = Sig*np.random.normal(loc=shear[i,j],scale=sige,size=ngal)
 	  wht   = 1.0/(sige*sige+errorp[isx]**2)/Sig/Sig
+	  #-------- weight I--------------------------------------
           sumshrI[j] = sumshrI[j]+(gmt*wht).sum()
-          #sumerrI[j] = sumerrI[j]+(Sig*sige*wht).sum()
           sumwhtI[j] = sumwhtI[j]+wht.sum()
-          sumerrI[j] = sumerrI[j]+(Sig*Sig*gmt*gmt*wht*wht).sum()
-          sumwhtrI[j] = sumwhtrI[j]+(wht*wht*Sig*Sig*Sig*Sig).sum()
-          sumshrII[j]= sumshrII[j]+(gmt*wht).sum()/Vcen[i]
-          #sumerrII[j]= sumerrII[j]+(Sig*sige*wht).sum()/Vcen[i]
-          sumwhtII[j]= sumwhtII[j]+wht.sum()/Vcen[i]
-          sumerrII[j]= sumerrII[j]+(Sig*Sig*gmt*gmt*wht*wht).sum()/Vcen[i]/Vcen[i]
-          sumwhtrII[j]= sumwhtrII[j]+(wht*wht*Sig*Sig*Sig*Sig).sum()/Vcen[i]/Vcen[i]
+          sumerrI[j] = sumerrI[j]+(gmt*gmt*wht*wht).sum()
 
+	  #-------- weight I--------------------------------------
+          sumshrII[j]= sumshrII[j]+(gmt*wht).sum()/Vcen[i]
+          sumwhtII[j]= sumwhtII[j]+wht.sum()/Vcen[i]
+          sumerrII[j]= sumerrII[j]+(gmt*gmt*wht*wht).sum()/Vcen[i]/Vcen[i]
+
+   print '# '+str(Nlens) 
+   print '# '+str(sumnum.sum())
    gammaI  = sumshrI/sumwhtI
-   errorI  = np.sqrt(sumerrI/sumwhtrI/sumnum)*Sig
+   errorI  = np.sqrt(sumerrI/(sumwhtI*sumwhtI))/2.0
    gammaII = sumshrII/sumwhtII
-   errorII = np.sqrt(sumerrII/sumwhtrII/sumnum)*Sig
-   for ie in range(len(errorI)):
-      #print Rp[ie],gammaI[ie],errorI[ie],gammaII[ie],errorII[ie]
-      print Rp[ie]
-   Mhm     = np.mean(Mhcen)
-   zm      = np.mean(zl)
-   con     = 4.67*(10.0**(Mhm-14)*h)**(-0.11) # Neto et al 2007 
+   errorII = np.sqrt(sumerrII/sumwhtII/sumwhtII)/2.0
    esdnfw  = np.zeros(Nbin)
-   for i in range(Nbin):
-     esdnfw[i]  = nfwesd([Mhm,con],zm,Rp[i])
+   Mhm     = np.mean(Mhcen)
+   zm      = np.mean(zlcen)
+   con     = 4.67*(10.0**(Mhm-14)*h)**(-0.11) # Neto et al 2007 
+    
+   if int(sys.argv[4])==1:
+      print "# volum limited"
+      print "# Rp   ESD_wtI    Error_wtI     ESD_wtII    Error_wtII    NFW<Mh>"
+   if int(sys.argv[4])==2:
+      print "# flux limited"
+      print "# Rp   ESD_wtI    Error_wtI     ESD_wtII    Error_wtII    NFW<Mh>"
+
+   esdnfw = (sumesd/float(Nlens))
+   for ie in range(Nbin):
+      print Rp[ie],gammaI[ie],errorI[ie],gammaII[ie],errorII[ie],esdnfw[ie]
     
    plt.figure(figsize=[9,6])
    plt.errorbar(Rp,gammaI/h,yerr=errorI*1.414/h,fmt='g.',\
                 ms=20,elinewidth=3,label='weight I')
-   plt.errorbar(Rp/1.1,gammaII/h,yerr=errorII*1.414/h,fmt='r.',\
+   plt.errorbar(Rp,gammaII/h,yerr=errorII*1.414/h,fmt='r.',\
                 ms=20,elinewidth=3,label='weight II')
-   plt.plot(Rp/1.1,gammaII/h,'r--',linewidth=3,label='weight volum limited')
+   plt.plot(Rp,gammaII/h,'r--',linewidth=3,label='weight volum limited')
    plt.plot(Rp,gammaI/h,'g--',linewidth=3,label='weight traditional')
    plt.plot(Rp,esdnfw/h,'b-',linewidth=3,label='<Mh> NFW model')
    plt.xlabel('R ($h^{-1}kpc$)',fontsize=20)
