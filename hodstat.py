@@ -37,7 +37,7 @@ class HODSTAT(object):
     sigs0  = params['sigs']
     phi    = np.interp(logMh,Mhost,phi0)
     alpha  = np.interp(logMh,Mhost,alpha0)
-    lgLc   = np.interp(logMh,Mhost,lgMc0)
+    lgLc   = np.interp(logMh,Mhost,lgLc0)
     sigs   = np.interp(logMh,Mhost,sigs0)
     Lmx    = np.linspace(7.8,12.0,100)
 
@@ -48,14 +48,25 @@ class HODSTAT(object):
   def occupation(self,lgMh):
     lgLmin = 0.4*(4.8-self.Mrmin)
     lgLmax = 0.4*(4.8-self.Mrmax)
-    lgLum  = np.linspace(lgLmin,lgMax,100)
+    lgLum  = np.linspace(lgLmin,lgLmax,100)
     values = self.clumfunc(lgMh)
     Lmx    = values['lgLrange']
     cenlf  = values['Central']
     satlf  = values['Satellite']
-    newcen = np,interp(lgLum,Lmx,cenlf)
-    newsat = np,interp(lgLum,Lmx,satlf)
+    newcen = np.interp(lgLum,Lmx,cenlf)
+    newsat = np.interp(lgLum,Lmx,satlf)
     occcen = np.sum(newcen*(lgLmax-lgLmin)/100.0)
     occsat = np.sum(newsat*(lgLmax-lgLmin)/100.0)
-  return {'fCen':occcen,'fSat':occsat}
+    return {'Central':occcen,'Satellite':occsat}
+  def hodfunc(self):
+    params = self.paramtable()
+    Mh     = params['logMh']
+    nh     = len(Mh)
+    cenhod = np.zeros(nh)
+    sathod = np.zeros(nh)
+    for i in range(nh):
+       res_hod  = self.occupation(Mh[i])
+       cenhod[i]= res_hod['Central']
+       sathod[i]= res_hod['Satellite']
+    return {'logMh':Mh,'CenHOD':cenhod,'SatHOD':sathod}
 #-------------------------------------------------------------------
